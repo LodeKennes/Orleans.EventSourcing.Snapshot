@@ -1,0 +1,45 @@
+name: .NET Core CI
+
+on:
+  push:
+    branches:
+      - own-packages
+    paths-ignore:
+      - 'README.md'
+      - 'nuget.config'
+      - '.gitignore'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      CONFIGURATION: Release
+      PROJECT_PATH: src/Orleans.EventSourcing.Snapshot/Orleans.EventSourcing.Snapshot.csproj
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '7.x'
+
+      - name: Sign in to nuget
+        run: dotnet nuget add source --username LodeKennes --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/LodeKennes/index.json"
+
+      - name: Build
+        run: dotnet build ${{ env.PROJECT_PATH }} --configuration ${{ env.CONFIGURATION }}
+
+      - name: Pack
+        run: dotnet pack ${{ env.PROJECT_PATH }} --no-build --output $GITHUB_WORKSPACE/artifacts
+
+      - name: Push
+        run: dotnet nuget push $GITHUB_WORKSPACE/artifacts/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source "github"
+
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: drop
+          path: $GITHUB_WORKSPACE/artifacts/
